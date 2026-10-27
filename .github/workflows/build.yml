@@ -1,0 +1,40 @@
+name: Compilar BPCoreEngine.gba
+
+on:
+  workflow_dispatch:   # permite ejecutarlo a mano desde la pestaña Actions
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm   # imagen oficial con devkitARM ya instalado
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar herramientas
+        run: |
+          apt-get update
+          apt-get install -y cmake make xxd python3
+          dkp-pacman -S --noconfirm gba-tools
+
+      - name: Configurar con CMake
+        working-directory: build
+        run: |
+          # -Werror hace fallar la compilación por avisos de compiladores nuevos
+          sed -i '/-Werror/d' CMakeLists.txt
+          cmake -DCMAKE_TOOLCHAIN_FILE=$(pwd)/devkitarm.cmake \
+                -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY .
+
+      - name: Compilar
+        working-directory: build
+        run: make -j2
+
+      - name: Subir la ROM
+        uses: actions/upload-artifact@v4
+        with:
+          name: BPCoreEngine-rom
+          path: build/BPCoreEngine.gba
+          
